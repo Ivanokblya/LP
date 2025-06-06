@@ -11,8 +11,10 @@ app.use(express.json());
 const LEETCODE_API_URL = 'https://leetcode.com/graphql';
 
 app.post('/api/leetcode/random', async (req, res) => {
+  console.log('Получен запрос на случайную задачу');
   try {
     const { difficulty } = req.body;
+    console.log('Параметры запроса:', { difficulty });
     
     const response = await axios.post(
       LEETCODE_API_URL,
@@ -50,13 +52,30 @@ app.post('/api/leetcode/random', async (req, res) => {
       }
     );
 
+    console.log('Получен ответ от LeetCode:', response.data);
     res.json(response.data);
   } catch (error) {
     console.error('Ошибка при проксировании запроса к LeetCode:', error);
-    res.status(500).json({ error: 'Ошибка при получении данных от LeetCode' });
+    if (axios.isAxiosError(error)) {
+      console.error('Детали ошибки:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+    }
+    res.status(500).json({ 
+      error: 'Ошибка при получении данных от LeetCode',
+      details: error instanceof Error ? error.message : 'Неизвестная ошибка'
+    });
   }
+});
+
+// Добавляем тестовый эндпоинт
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'Сервер работает!' });
 });
 
 app.listen(port, () => {
   console.log(`Сервер запущен на порту ${port}`);
+  console.log(`Тестовый эндпоинт доступен по адресу: http://localhost:${port}/api/test`);
 }); 
