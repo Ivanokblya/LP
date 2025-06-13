@@ -135,7 +135,6 @@ function App() {
                 <MenuItem value="random">Случайный</MenuItem>
                 <MenuItem value="leetcode">LeetCode</MenuItem>
                 <MenuItem value="codeforces">Codeforces</MenuItem>
-                <MenuItem value="exercism">Exercism</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -186,6 +185,204 @@ function App() {
                 />
               ))}
             </Box>
+            
+            {currentTask.content && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Описание:
+                </Typography>
+                <Typography 
+                  variant="body1" 
+                  sx={{ 
+                    whiteSpace: 'pre-wrap',
+                    '& code': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                      padding: '2px 4px',
+                      borderRadius: '4px',
+                      fontFamily: 'monospace'
+                    },
+                    '& p': {
+                      marginBottom: '1em',
+                      lineHeight: 1.6
+                    },
+                    '& ul, & ol': {
+                      paddingLeft: '2em',
+                      marginBottom: '1em'
+                    },
+                    '& li': {
+                      marginBottom: '0.5em',
+                      lineHeight: 1.6
+                    },
+                    '& sub, & sup': {
+                      fontSize: '0.8em',
+                      lineHeight: 0
+                    }
+                  }}
+                  dangerouslySetInnerHTML={{ 
+                    __html: currentTask.content
+                      .replace(/&nbsp;/g, ' ')
+                      .replace(/&lt;/g, '<')
+                      .replace(/&gt;/g, '>')
+                      .replace(/&amp;/g, '&')
+                      .replace(/&quot;/g, '"')
+                      .replace(/&#39;/g, "'")
+                      .replace(/&apos;/g, "'")
+                      .replace(/<code>([^<]+)<\/code>/g, '<code>$1</code>')
+                      .replace(/<p>([^<]+)<\/p>/g, '<p>$1</p>')
+                      .replace(/<ul>([^<]+)<\/ul>/g, '<ul>$1</ul>')
+                      .replace(/<ol>([^<]+)<\/ol>/g, '<ol>$1</ol>')
+                      .replace(/<li>([^<]+)<\/li>/g, '<li>$1</li>')
+                      .replace(/(\d+)\s*<sup>(\d+)<\/sup>/g, '$1<sup>$2</sup>')
+                      .replace(/(\d+)\s*<sub>(\d+)<\/sub>/g, '$1<sub>$2</sub>')
+                      // Убираем множественные пробелы и переносы строк
+                      .replace(/\n{3,}/g, '\n\n')
+                      .replace(/\s{2,}/g, ' ')
+                      // Форматируем примеры в описании
+                      .replace(/\[([^\]]+)\]\s*=>\s*\[([^\]]+)\]/g, '<code>[$1] => [$2]</code>')
+                      // Форматируем математические выражения
+                      .replace(/(\d+)\s*-\s*(\d+)/g, '$1-$2')
+                      .replace(/(\d+)\s*\+\s*(\d+)/g, '$1+$2')
+                      .replace(/(\d+)\s*\*\s*(\d+)/g, '$1×$2')
+                      .replace(/(\d+)\s*\/\s*(\d+)/g, '$1÷$2')
+                      // Форматируем переменные в коде
+                      .replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g, '<code>$1</code>')
+                  }}
+                />
+              </Box>
+            )}
+
+            {currentTask.examples && currentTask.examples.length > 0 && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Примеры:
+                </Typography>
+                {currentTask.examples.map((example, index) => {
+                  const [input, output] = example.split('\n\nВыходные данные:');
+                  return (
+                    <Box key={index} sx={{ mb: 3, p: 2, bgcolor: 'rgba(0, 0, 0, 0.02)', borderRadius: 1 }}>
+                      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
+                        Пример {index + 1}:
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ color: 'text.secondary', mb: 0.5 }}>
+                            Входные данные:
+                          </Typography>
+                          <Typography 
+                            variant="body1" 
+                            sx={{ 
+                              whiteSpace: 'pre-wrap', 
+                              fontFamily: 'monospace',
+                              bgcolor: 'rgba(0, 0, 0, 0.04)',
+                              p: 1,
+                              borderRadius: 1
+                            }}
+                          >
+                            {input.replace('Входные данные:', '').trim()}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ color: 'text.secondary', mb: 0.5 }}>
+                            Выходные данные:
+                          </Typography>
+                          <Typography 
+                            variant="body1" 
+                            sx={{ 
+                              whiteSpace: 'pre-wrap', 
+                              fontFamily: 'monospace',
+                              bgcolor: 'rgba(0, 0, 0, 0.04)',
+                              p: 1,
+                              borderRadius: 1
+                            }}
+                          >
+                            {output.trim()}
+                          </Typography>
+                        </Box>
+                        {example.includes('Explanation:') && (
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ color: 'text.secondary', mb: 0.5 }}>
+                              Объяснение:
+                            </Typography>
+                            <Typography 
+                              variant="body1" 
+                              sx={{ 
+                                whiteSpace: 'pre-wrap',
+                                lineHeight: 1.6
+                              }}
+                            >
+                              {example.split('Explanation:')[1].trim()}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
+
+            {currentTask.constraints && currentTask.constraints.length > 0 && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Ограничения:
+                </Typography>
+                <Box component="ul" sx={{ pl: 2 }}>
+                  {currentTask.constraints.map((constraint, index) => (
+                    <Typography 
+                      key={index} 
+                      component="li" 
+                      variant="body1" 
+                      sx={{ 
+                        mb: 1,
+                        lineHeight: 1.6,
+                        '& code': {
+                          backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                          padding: '2px 4px',
+                          borderRadius: '4px',
+                          fontFamily: 'monospace'
+                        },
+                        '& sub, & sup': {
+                          fontSize: '0.8em',
+                          lineHeight: 0
+                        }
+                      }}
+                      dangerouslySetInnerHTML={{ 
+                        __html: constraint
+                          .replace(/&lt;/g, '<')
+                          .replace(/&gt;/g, '>')
+                          .replace(/&amp;/g, '&')
+                          .replace(/(\d+)\s*<sup>(\d+)<\/sup>/g, '$1<sup>$2</sup>')
+                          .replace(/(\d+)\s*<sub>(\d+)<\/sub>/g, '$1<sub>$2</sub>')
+                      }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+
+            {currentTask.hints && currentTask.hints.length > 0 && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Подсказки:
+                </Typography>
+                <Box component="ol" sx={{ pl: 2 }}>
+                  {currentTask.hints.map((hint, index) => (
+                    <Typography 
+                      key={index} 
+                      component="li" 
+                      variant="body1" 
+                      sx={{ 
+                        mb: 1,
+                        lineHeight: 1.6
+                      }}
+                    >
+                      {hint}
+                    </Typography>
+                  ))}
+                </Box>
+              </Box>
+            )}
+
             <Typography variant="h6" gutterBottom>
               Время: {formatTime(timer)}
             </Typography>

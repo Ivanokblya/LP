@@ -1,5 +1,5 @@
 export type Difficulty = 'easy' | 'medium' | 'hard';
-export type Source = 'leetcode' | 'codeforces' | 'exercism' | 'random';
+export type Source = 'leetcode' | 'codeforces' | 'random';
 export type AttemptStatus = 'started' | 'completed' | 'failed' | 'abandoned';
 
 export interface TopicTag {
@@ -22,6 +22,10 @@ export interface Task {
   stats: string; // JSON string of TaskStats
   topicTags: TopicTag[];
   source: Source;
+  content?: string; // Описание задания
+  examples?: string[]; // Примеры входных/выходных данных
+  constraints?: string[]; // Ограничения
+  hints?: string[]; // Подсказки
 }
 
 export interface Attempt {

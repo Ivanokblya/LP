@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const puppeteer = require('puppeteer');
 
 const app = express();
 const port = 3001;
@@ -43,6 +44,9 @@ async function getLeetCodeTask(difficulty) {
           titleSlug
           difficulty
           categoryTitle
+          content
+          exampleTestcases
+          hints
           stats
           topicTags {
             name
@@ -78,61 +82,220 @@ async function getLeetCodeTask(difficulty) {
     throw new Error(response.data.errors[0].message);
   }
 
+  const question = response.data.data.randomQuestion;
   console.log('Успешный ответ от LeetCode');
+
+  // Обработка примеров
+  const examples = question.exampleTestcases ? 
+    question.exampleTestcases.split('\n\n').map(example => {
+      const [input, output] = example.split('\n');
+      return `Входные данные:\n${input}\n\nВыходные данные:\n${output}`;
+    }) : [];
+
+  // Обработка ограничений
+  const constraintsMatch = question.content.match(/<p><strong>Constraints:<\/strong><\/p>([\s\S]*?)(?:<p>|$)/);
+  const constraints = constraintsMatch ? 
+    constraintsMatch[1]
+      .split('</li>')
+      .map(line => line.replace(/<[^>]+>/g, '').trim())
+      .filter(line => line) : [];
+
   return {
-    ...response.data.data.randomQuestion,
-    source: 'leetcode'
+    ...question,
+    source: 'leetcode',
+    examples,
+    constraints,
+    content: question.content.replace(/<[^>]+>/g, '\n').trim()
   };
+}
+
+// Получение описания задачи через Puppeteer
+async function getCodeforcesProblemDescription(contestId, index) {
+  const url = `https://codeforces.com/contest/${contestId}/problem/${index}`;
+  console.log('Открываем страницу:', url);
+  
+  const browser = await puppeteer.launch({ 
+    headless: false,
+    slowMo: 50,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+  
+  const page = await browser.newPage();
+  
+  try {
+    // Устанавливаем таймаут для навигации
+    await page.setDefaultNavigationTimeout(30000);
+    
+    // Переходим на страницу
+    console.log('Загружаем страницу...');
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    
+    // Ждем загрузку контента
+    console.log('Ожидаем загрузку контента...');
+    await page.waitForSelector('.problem-statement', { timeout: 10000 });
+    
+    // Извлекаем описание задачи
+    console.log('Извлекаем описание задачи...');
+    const problemHtml = await page.$eval('.problem-statement', el => {
+      // Получаем заголовок
+      const title = el.querySelector('.title')?.innerText || '';
+      
+      // Получаем ограничения
+      const timeLimit = el.querySelector('.time-limit')?.innerText || '';
+      const memoryLimit = el.querySelector('.memory-limit')?.innerText || '';
+      
+      // Получаем описание
+      const description = Array.from(el.querySelectorAll('p'))
+        .map(p => p.innerText.trim())
+        .filter(text => text && !text.includes('ограничение по времени') && !text.includes('ограничение по памяти'))
+        .join(' ');
+      
+      // Получаем входные и выходные данные
+      const inputSpec = el.querySelector('.input-specification')?.innerText || '';
+      const outputSpec = el.querySelector('.output-specification')?.innerText || '';
+      
+      // Форматируем текст
+      return [
+        title,
+        timeLimit,
+        memoryLimit,
+        description,
+        inputSpec,
+        outputSpec
+      ].filter(Boolean).join('\n');
+    });
+    
+    // Извлекаем примеры
+    console.log('Извлекаем примеры...');
+    const examples = await page.$$eval('.sample-test', tests => {
+      return tests.map(test => {
+        const input = test.querySelector('.input pre')?.innerText.trim() || '';
+        const output = test.querySelector('.output pre')?.innerText.trim() || '';
+        return `Пример:\nВходные данные:\n${input}\n\nВыходные данные:\n${output}`;
+      });
+    });
+    
+    console.log('Успешно получено описание задачи');
+    return {
+      url,
+      description: problemHtml,
+      examples
+    };
+  } catch (error) {
+    console.error('Ошибка при получении описания задачи:', error);
+    
+    // Проверяем HTML страницы в случае ошибки
+    try {
+      const html = await page.content();
+      console.log('HTML страницы при ошибке:', html.slice(0, 1000));
+    } catch (e) {
+      console.error('Не удалось получить HTML страницы:', e);
+    }
+    
+    throw new Error(`Ошибка при получении описания задачи: ${error.message}`);
+  } finally {
+    console.log('Закрываем браузер...');
+    await browser.close();
+  }
 }
 
 // Получение задачи с Codeforces
 async function getCodeforcesTask(difficulty) {
   console.log('Запрос к Codeforces API');
-  const response = await axios.get(CODEFORCES_API_URL);
-  
-  if (response.data.status !== 'OK') {
-    console.error('Ошибка Codeforces API:', response.data);
-    throw new Error('Ошибка в ответе Codeforces API');
-  }
+  try {
+    // Получаем список всех задач
+    const response = await axios.get('https://codeforces.com/api/problemset.problems', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Origin': 'https://codeforces.com',
+        'Referer': 'https://codeforces.com/'
+      },
+      params: {
+        lang: 'en'
+      },
+      timeout: 10000,
+      validateStatus: function (status) {
+        return status >= 200 && status < 500;
+      }
+    });
+    
+    console.log('Ответ от Codeforces API:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      data: response.data
+    });
 
-  let problems = response.data.result.problems;
-  console.log(`Получено ${problems.length} задач с Codeforces`);
-  
-  if (difficulty) {
-    const difficultyMap = {
-      'easy': 1200,
-      'medium': 1600,
-      'hard': 2000
+    if (!response.data || response.data.status !== 'OK') {
+      console.error('Ошибка Codeforces API:', response.data);
+      throw new Error('Ошибка в ответе Codeforces API: ' + JSON.stringify(response.data));
+    }
+
+    let problems = response.data.result.problems;
+    console.log(`Получено ${problems.length} задач с Codeforces`);
+    
+    // Фильтруем по сложности
+    if (difficulty) {
+      const difficultyMap = {
+        'easy': 1200,
+        'medium': 1600,
+        'hard': 2000
+      };
+      const targetRating = difficultyMap[difficulty];
+      problems = problems.filter(p => p.rating && Math.abs(p.rating - targetRating) <= 200);
+      console.log(`Отфильтровано ${problems.length} задач по сложности ${difficulty}`);
+    }
+
+    if (problems.length === 0) {
+      throw new Error('Нет задач с указанной сложностью');
+    }
+
+    // Выбираем случайную задачу
+    const randomProblem = problems[Math.floor(Math.random() * problems.length)];
+    console.log('Выбрана задача:', randomProblem.name);
+
+    // Получаем полное описание задачи через Puppeteer
+    console.log('Получаем описание задачи через Puppeteer...');
+    const problemDescription = await getCodeforcesProblemDescription(randomProblem.contestId, randomProblem.index);
+
+    return {
+      questionId: randomProblem.contestId + randomProblem.index,
+      title: randomProblem.name,
+      titleSlug: `${randomProblem.contestId}/${randomProblem.index}`,
+      difficulty: randomProblem.rating,
+      categoryTitle: 'Codeforces',
+      stats: JSON.stringify({
+        totalAccepted: randomProblem.solvedCount || 0,
+        totalSubmission: 0,
+        acRate: 0
+      }),
+      topicTags: randomProblem.tags.map(tag => ({
+        name: tag,
+        slug: tag.toLowerCase()
+      })),
+      source: 'codeforces',
+      content: problemDescription.description,
+      examples: problemDescription.examples,
+      constraints: [
+        `Сложность: ${randomProblem.rating}`,
+        `Теги: ${randomProblem.tags.join(', ')}`,
+        `Ссылка на задачу: ${problemDescription.url}`
+      ]
     };
-    const targetRating = difficultyMap[difficulty];
-    problems = problems.filter(p => p.rating && Math.abs(p.rating - targetRating) <= 200);
-    console.log(`Отфильтровано ${problems.length} задач по сложности ${difficulty}`);
+  } catch (error) {
+    console.error('Ошибка при получении задачи с Codeforces:', error);
+    throw error;
   }
-
-  if (problems.length === 0) {
-    throw new Error('Нет задач с указанной сложностью');
-  }
-
-  const randomProblem = problems[Math.floor(Math.random() * problems.length)];
-  console.log('Выбрана задача:', randomProblem.name);
-  
-  return {
-    questionId: randomProblem.contestId + randomProblem.index,
-    title: randomProblem.name,
-    titleSlug: `${randomProblem.contestId}/${randomProblem.index}`,
-    difficulty: randomProblem.rating,
-    categoryTitle: 'Codeforces',
-    stats: JSON.stringify({
-      totalAccepted: randomProblem.solvedCount || 0,
-      totalSubmission: 0,
-      acRate: 0
-    }),
-    topicTags: randomProblem.tags.map(tag => ({
-      name: tag,
-      slug: tag.toLowerCase()
-    })),
-    source: 'codeforces'
-  };
 }
 
 // Получение задачи с Exercism
