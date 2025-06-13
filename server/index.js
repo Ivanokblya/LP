@@ -54,9 +54,7 @@ app.post('/api/leetcode/random', async (req, res) => {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
           'Accept': 'application/json',
           'Referer': 'https://leetcode.com/',
-          'Origin': 'https://leetcode.com',
-          'Cookie': 'LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhY2NvdW50X3ZlcmlmaWVkX2VtYWlsIjpudWxsLCJhY2NvdW50X3VzZXIiOiJhbzdsbyIsIl9hdXRoX3VzZXJfaWQiOiIxNzkyNTc1NiIsIl9hdXRoX3VzZXJfYmFja2VuZCI6ImFsbGF1dGguYWNjb3VudC5hdXRoX2JhY2tlbmRzLkF1dGhlbnRpY2F0aW9uQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6ImY4ODA0ODVhYzY3ZDc0ZDA1MTAyZDc3Y2M1YTMwNjc1ZjkyYTNjMzVlMGZkOTBiOWE0MGViMGE2MzQ0MDFkNTQiLCJzZXNzaW9uX3V1aWQiOiI2NzIzYzU3ZiIsImlkIjoxNzkyNTc1NiwiZW1haWwiOiJpdmFuLm1pbGFzaGthMjAyMEB5YW5kZXgucnUiLCJ1c2VybmFtZSI6InBvZHBpdmFzaGthIiwidXNlcl9zbHVnIjoicG9kcGl2YXNoa2EiLCJhdmF0YXIiOiJodHRwczovL2Fzc2V0cy5sZWV0Y29kZS5jb20vdXNlcnMvZGVmYXVsdF9hdmF0YXIuanBnIiwicmVmcmVzaGVkX2F0IjoxNzQ5MjQxMTU5LCJpcCI6IjE3OC4xNDEuMTcuNzIiLCJpZGVudGl0eSI6ImYyNzJiODBkZDkzODdjYmM0OWEyZmRmN2E4OGIxNGYxIiwiZGV2aWNlX3dpdGhfaXAiOlsiZmVhZDNhYTU1ZDA3MTNiMDBkNTI1NjgyMTA4MzVmOTUiLCIxNzguMTQxLjE3LjcyIl19.BzR8SVNmgzNBIq8cvQDROxFHdY5wbzHvdIvyn-bq0DY; csrftoken=vnRufms5JxWOCSvOpvaQ59w6juWStAZCR0GLIwNExm42Cc7cRjD2qlA0y6oESWaE',
-          'X-CSRFToken': 'vnRufms5JxWOCSvOpvaQ59w6juWStAZCR0GLIwNExm42Cc7cRjD2qlA0y6oESWaE'
+          'Origin': 'https://leetcode.com'
         },
         timeout: 10000,
         validateStatus: function (status) {
