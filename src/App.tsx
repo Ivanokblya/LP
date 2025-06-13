@@ -26,6 +26,53 @@ import {
 import { getRandomTask, updateAttempt, getAttempts } from './services/taskService';
 import { Task, Difficulty, Source, Attempt, TaskResponse } from './types';
 
+const DEEPL_API_KEY = 'your-api-key'; // Замените на ваш API ключ
+
+async function translateText(text: string): Promise<string> {
+  try {
+    const cleanText = text.trim().replace(/\s+/g, ' ');
+    
+    if (cleanText.length > 400) {
+      const parts = cleanText.split(/(?<=[.!?])\s+/);
+      const translatedParts = await Promise.all(
+        parts.map(part => translateText(part))
+      );
+      return translatedParts.join(' ');
+    }
+
+    console.log('Отправка текста на перевод:', cleanText);
+    const encodedText = encodeURIComponent(cleanText);
+    const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodedText}&langpair=en|ru`);
+
+    if (!response.ok) {
+      console.error('Ошибка перевода:', response.status, response.statusText);
+      throw new Error('Translation failed');
+    }
+
+    const data = await response.json();
+    console.log('Ответ от API перевода:', data);
+    
+    if (!data.responseData || !data.responseData.translatedText) {
+      console.error('Нет переведенного текста в ответе:', data);
+      return cleanText;
+    }
+    
+    let translatedText = data.responseData.translatedText
+      .replace(/QUERY LENGTH LIMIT EXCEEDED\. MAX ALLOWED QUERY : \d+ CHARS/g, '')
+      .replace(/NO QUERY SPECIFIED\. EXAMPLE REQUEST: GET\?Q=HELLO&LANGPAIR=EN\|IT/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/(\d+)\s+(\d+)/g, '$1$2')
+      .replace(/([.,!?])\s*/g, '$1 ')
+      .trim();
+
+    return translatedText;
+  } catch (error) {
+    console.error('Ошибка перевода:', error);
+    return text;
+  }
+}
+
 function App() {
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [source, setSource] = useState<Source>('random');
@@ -37,6 +84,7 @@ function App() {
   const [timerActive, setTimerActive] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
+  const [translatedContent, setTranslatedContent] = useState('');
 
   // Загрузка истории попыток
   const loadAttempts = useCallback(async () => {
@@ -62,6 +110,26 @@ function App() {
     }
     return () => clearInterval(interval);
   }, [timerActive]);
+
+  useEffect(() => {
+    if (currentTask && currentTask.source === 'leetcode' && currentTask.content) {
+      console.log('Начинаем перевод задачи:', currentTask.content);
+      const sections = currentTask.content.split(/(?=Example \d:|Constraints:|Input:|Output:|Explanation:)/);
+      
+      const cleanSections = sections.map(section => 
+        section.trim().replace(/\n+/g, ' ').replace(/\s+/g, ' ')
+      );
+
+      Promise.all(cleanSections.map(section => translateText(section)))
+        .then(translatedParts => {
+          const translated = translatedParts.join('\n\n');
+          console.log('Получен перевод:', translated);
+          setTranslatedContent(translated);
+        });
+    } else {
+      setTranslatedContent(currentTask?.content || '');
+    }
+  }, [currentTask]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -194,7 +262,7 @@ function App() {
                 <Typography 
                   variant="body1" 
                   sx={{ 
-                    whiteSpace: 'pre-wrap',
+                    whiteSpace: 'normal',
                     '& code': {
                       backgroundColor: 'rgba(0, 0, 0, 0.04)',
                       padding: '2px 4px',
@@ -215,11 +283,19 @@ function App() {
                     },
                     '& sub, & sup': {
                       fontSize: '0.8em',
-                      lineHeight: 0
+                      lineHeight: 0,
+                      verticalAlign: 'super'
+                    },
+                    fontSize: '1rem',
+                    lineHeight: 1.8,
+                    textAlign: 'justify',
+                    hyphens: 'auto',
+                    '& > *': {
+                      marginBottom: '1em'
                     }
                   }}
                   dangerouslySetInnerHTML={{ 
-                    __html: currentTask.content
+                    __html: translatedContent
                       .replace(/&nbsp;/g, ' ')
                       .replace(/&lt;/g, '<')
                       .replace(/&gt;/g, '>')
@@ -227,25 +303,38 @@ function App() {
                       .replace(/&quot;/g, '"')
                       .replace(/&#39;/g, "'")
                       .replace(/&apos;/g, "'")
-                      .replace(/<code>([^<]+)<\/code>/g, '<code>$1</code>')
-                      .replace(/<p>([^<]+)<\/p>/g, '<p>$1</p>')
-                      .replace(/<ul>([^<]+)<\/ul>/g, '<ul>$1</ul>')
-                      .replace(/<ol>([^<]+)<\/ol>/g, '<ol>$1</ol>')
-                      .replace(/<li>([^<]+)<\/li>/g, '<li>$1</li>')
-                      .replace(/(\d+)\s*<sup>(\d+)<\/sup>/g, '$1<sup>$2</sup>')
-                      .replace(/(\d+)\s*<sub>(\d+)<\/sub>/g, '$1<sub>$2</sub>')
-                      // Убираем множественные пробелы и переносы строк
-                      .replace(/\n{3,}/g, '\n\n')
-                      .replace(/\s{2,}/g, ' ')
-                      // Форматируем примеры в описании
-                      .replace(/\[([^\]]+)\]\s*=>\s*\[([^\]]+)\]/g, '<code>[$1] => [$2]</code>')
-                      // Форматируем математические выражения
-                      .replace(/(\d+)\s*-\s*(\d+)/g, '$1-$2')
-                      .replace(/(\d+)\s*\+\s*(\d+)/g, '$1+$2')
-                      .replace(/(\d+)\s*\*\s*(\d+)/g, '$1×$2')
-                      .replace(/(\d+)\s*\/\s*(\d+)/g, '$1÷$2')
-                      // Форматируем переменные в коде
+                      // Обработка математических выражений
+                      .replace(/(\d+)\s*≤\s*([^≤]+)\s*≤\s*(\d+)/g, '$1 ≤ $2 ≤ $3')
+                      .replace(/(\d+)\s*⋅\s*(\d+)/g, '$1 × $2')
+                      .replace(/([a-zA-Z])\s*<sub>([^<]+)<\/sub>/g, '$1<sub>$2</sub>')
+                      .replace(/([a-zA-Z])\s*<sup>([^<]+)<\/sup>/g, '$1<sup>$2</sup>')
+                      // Форматирование переменных
                       .replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g, '<code>$1</code>')
+                      // Убираем лишние пробелы и переносы
+                      .replace(/\n{3,}/g, ' ')
+                      .replace(/\s{2,}/g, ' ')
+                      // Убираем HTML-теги
+                      .replace(/<div[^>]*>([^<]*)<\/div>/g, '$1')
+                      .replace(/<p[^>]*>([^<]*)<\/p>/g, '$1')
+                      // Форматирование для LeetCode
+                      .replace(/Example (\d+):/g, 'Пример $1:')
+                      .replace(/Input:/g, 'Входные данные:')
+                      .replace(/Output:/g, 'Выходные данные:')
+                      .replace(/Explanation:/g, 'Объяснение:')
+                      .replace(/Constraints:/g, 'Ограничения:')
+                      .replace(/(\d+)\s*<=\s*([^<]+)\s*<=\s*(\d+)/g, '$1 ≤ $2 ≤ $3')
+                      .replace(/(\d+)\s*==\s*([^<]+)\s*==\s*(\d+)/g, '$1 = $2 = $3')
+                      // Форматирование для Codeforces
+                      .replace(/Описание:/g, 'Описание:')
+                      .replace(/ограничение по времени на тест/g, 'Ограничение по времени на тест:')
+                      .replace(/ограничение по памяти на тест/g, 'Ограничение по памяти на тест:')
+                      .replace(/Входные данные/g, 'Входные данные:')
+                      .replace(/Выходные данные/g, 'Выходные данные:')
+                      // Форматирование множеств
+                      .replace(/([A-Z])\s*=\s*{([^}]+)}/g, '$1 = {$2}')
+                      .replace(/(\d+)\s*,\s*(\d+)/g, '$1, $2')
+                      // Форматирование примеров
+                      .replace(/В (\w+) наборе входных данных/g, 'В $1 наборе входных данных:')
                   }}
                 />
               </Box>

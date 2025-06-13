@@ -19,13 +19,13 @@ export interface Task {
   titleSlug: string;
   difficulty: string | number;
   categoryTitle: string;
-  stats: string; // JSON string of TaskStats
+  stats: string;
   topicTags: TopicTag[];
   source: Source;
-  content?: string; // Описание задания
-  examples?: string[]; // Примеры входных/выходных данных
-  constraints?: string[]; // Ограничения
-  hints?: string[]; // Подсказки
+  content?: string;
+  examples?: string[];
+  constraints?: string[];
+  hints?: string[];
 }
 
 export interface Attempt {
