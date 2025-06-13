@@ -29,20 +29,20 @@
 ## Установка
 
 1. Клонируйте репозиторий:
-bash
+```bash
 git clone https://github.com/Ivanokblya/LP
 cd LP
-
+```
 
 2. Установите зависимости:
-bash
+```bash
 npm install
 
 
 ## Запуск
 
 1. Запустите сервер разработки:
-bash
+```bash
 npm run dev
 
 
@@ -67,13 +67,13 @@ npm run dev
 
 ## Структура проекта
 
-
+```
 src/
   ├── components/     # React компоненты
   ├── services/      # Сервисы для работы с API
   ├── types/         # TypeScript типы
   └── App.tsx        # Основной компонент приложения
-
+```
 
 ## Функциональность
 
@@ -86,7 +86,7 @@ src/
 ## Разработка
 
 Для разработки используйте:
-bash
+```bash
 npm run dev
 # или
 
@@ -94,7 +94,7 @@ npm run dev
 ## Сборка
 
 Для создания production сборки:
-bash
+```bash
 npm run build
 
 ## Лицензия
