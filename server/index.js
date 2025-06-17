@@ -1,14 +1,19 @@
-const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
-const puppeteer = require('puppeteer');
-const mysql = require('mysql2/promise');
-const jwt = require('jsonwebtoken');
-const authRoutes = require('./routes/auth');
-const bcrypt = require('bcrypt');
+import express from 'express';
+import cors from 'cors';
+import axios from 'axios';
+import puppeteer from 'puppeteer';
+import mysql from 'mysql2/promise';
+import jwt from 'jsonwebtoken';
+import authRoutes from './routes/auth.js';
+import bcrypt from 'bcrypt';
+import fetch from 'node-fetch';
+import dotenv from 'dotenv';
+import { pool } from './db.js';
+
+dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
@@ -21,11 +26,11 @@ app.use(express.json());
 
 // Подключение к базе данных
 const pool = mysql.createPool({
-  host: 'localhost',
+  host: process.env.DB_HOST || 'localhost',
   port: 3306,
-  user: 'root',
-  password: '',
-  database: 'programming_tasks',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'programming_tasks',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -40,6 +45,23 @@ pool.getConnection()
   .catch(err => {
     console.error('Ошибка подключения к базе данных:', err);
   });
+
+// Удаление старой таблицы attempts
+await pool.execute('DROP TABLE IF EXISTS attempts');
+
+// Создание таблицы attempts
+await pool.execute(`
+  CREATE TABLE IF NOT EXISTS attempts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    task_id INT NOT NULL,
+    status ENUM('completed', 'failed', 'abandoned', 'in_progress') NOT NULL,
+    timeSpent INT DEFAULT 0,
+    submission_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (task_id) REFERENCES tasks(id)
+  )
+`);
 
 const LEETCODE_API_URL = 'https://leetcode.com/graphql';
 const CODEFORCES_API_URL = 'https://codeforces.com/api/problemset.problems';
@@ -787,7 +809,7 @@ app.get('/api/attempts', authenticateToken, async (req, res) => {
         a.user_id as userId,
         a.task_id as taskId,
         a.status,
-        a.time_spent as timeSpent,
+        a.timeSpent,
         a.submission_time as submissionTime,
         t.title,
         t.source,
@@ -806,7 +828,12 @@ app.get('/api/attempts', authenticateToken, async (req, res) => {
 
     // Преобразуем JSON строки в объекты
     const formattedAttempts = attempts.map(attempt => ({
-      ...attempt,
+      id: attempt.id,
+      userId: attempt.userId,
+      taskId: attempt.taskId,
+      status: attempt.status,
+      timeSpent: attempt.timeSpent,
+      submissionTime: attempt.submissionTime,
       task: {
         title: attempt.title,
         source: attempt.source,
@@ -1921,7 +1948,7 @@ app.use((err, req, res, next) => {
 });
 
 // Запуск сервера
-app.listen(port, () => {
-  console.log(`Сервер запущен на порту ${port}`);
-  console.log(`Тестовый эндпоинт доступен по адресу: http://localhost:${port}/api/test`);
+app.listen(PORT, () => {
+  console.log(`Сервер запущен на порту ${PORT}`);
+  console.log('База данных подключена');
 }); 

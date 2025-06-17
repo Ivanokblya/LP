@@ -59,24 +59,27 @@ export const updateAttempt = async (
   }
 };
 
-export const getAttempts = async (): Promise<Attempt[]> => {
+export const getAttempts = async () => {
   try {
-    const authHeader = getAuthHeader();
-    const headers = new Headers();
-    if (authHeader.Authorization) {
-      headers.append('Authorization', authHeader.Authorization);
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Токен не найден');
     }
 
     const response = await fetch(`${API_URL}/attempts`, {
-      headers,
-      credentials: 'include',
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
     });
 
     if (!response.ok) {
-      throw new Error('Ошибка при получении истории попыток');
+      const error = await response.json();
+      throw new Error(error.message || 'Ошибка при получении истории попыток');
     }
 
-    return response.json();
+    return await response.json();
   } catch (error) {
     console.error('Ошибка при получении истории попыток:', error);
     throw error;
