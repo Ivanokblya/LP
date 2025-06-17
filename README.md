@@ -72,7 +72,7 @@ npm run dev
 ```
 src/
   ├── components/     # React-компоненты
-  ├── services/       # Сервисы для работы с API
+  ├── server/         # Сервисы для работы с API
   ├── types/          # TypeScript-типы
   └── App.tsx         # Основной компонент приложения
 ```
