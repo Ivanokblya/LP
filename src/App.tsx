@@ -98,11 +98,15 @@ function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [translatedContent, setTranslatedContent] = useState('');
+  const [showTranslation, setShowTranslation] = useState(true);
+  const [translatedConstraints, setTranslatedConstraints] = useState<string[]>([]);
+  const [translatedHints, setTranslatedHints] = useState<string[]>([]);
   const [code, setCode] = React.useState('');
   const [codeReview, setCodeReview] = React.useState<any>(null);
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [selectedAttempt, setSelectedAttempt] = useState<Attempt | null>(null);
   const [startTime, setStartTime] = useState<number>(Date.now());
+  const [translationError, setTranslationError] = useState<string | null>(null);
 
   // Загрузка истории попыток
   const loadAttempts = useCallback(async () => {
@@ -131,22 +135,58 @@ function App() {
   }, [timerActive]);
 
   useEffect(() => {
-    if (currentTask && currentTask.source === 'leetcode' && currentTask.content) {
-      console.log('Начинаем перевод задачи:', currentTask.content);
-      const sections = currentTask.content.split(/(?=Example \d:|Constraints:|Input:|Output:|Explanation:)/);
-      
-      const cleanSections = sections.map(section => 
-        section.trim().replace(/\n+/g, ' ').replace(/\s+/g, ' ')
-      );
-
-      Promise.all(cleanSections.map(section => translateText(section)))
-        .then(translatedParts => {
-          const translated = translatedParts.join('\n\n');
-          console.log('Получен перевод:', translated);
-          setTranslatedContent(translated);
+    if (currentTask && currentTask.content) {
+      setTranslationError(null);
+      // Переводим основное описание целиком
+      translateText(currentTask.content)
+        .then(translated => {
+          if (!translated || translated.trim() === '') {
+            setTranslationError('Ошибка перевода: пустой результат');
+            setTranslatedContent('');
+          } else {
+            setTranslatedContent(translated);
+          }
+        })
+        .catch(error => {
+          setTranslationError('Ошибка перевода: ' + error.message);
+          setTranslatedContent('');
         });
+
+      // Переводим ограничения
+      if (currentTask.constraints && currentTask.constraints.length > 0) {
+        console.log('Переводим ограничения:', currentTask.constraints);
+        Promise.all(currentTask.constraints.map(constraint => translateText(constraint)))
+          .then(translatedConstraints => {
+            console.log('Получен перевод ограничений:', translatedConstraints);
+            setTranslatedConstraints(translatedConstraints);
+          })
+          .catch(error => {
+            console.error('Ошибка перевода ограничений:', error);
+            setTranslatedConstraints(currentTask.constraints || []);
+          });
+      } else {
+        setTranslatedConstraints([]);
+      }
+
+      // Переводим подсказки
+      if (currentTask.hints && currentTask.hints.length > 0) {
+        console.log('Переводим подсказки:', currentTask.hints);
+        Promise.all(currentTask.hints.map(hint => translateText(hint)))
+          .then(translatedHints => {
+            console.log('Получен перевод подсказок:', translatedHints);
+            setTranslatedHints(translatedHints);
+          })
+          .catch(error => {
+            console.error('Ошибка перевода подсказок:', error);
+            setTranslatedHints(currentTask.hints || []);
+          });
+      } else {
+        setTranslatedHints([]);
+      }
     } else {
       setTranslatedContent(currentTask?.content || '');
+      setTranslatedConstraints([]);
+      setTranslatedHints([]);
     }
   }, [currentTask]);
 
@@ -167,6 +207,8 @@ function App() {
       setTimer(0);
       setTimerActive(true);
       setStartTime(Date.now());
+      // Сбрасываем состояния перевода
+      setShowTranslation(true);
     } catch (error) {
       setError('Ошибка при получении задачи');
       console.error(error);
@@ -383,9 +425,23 @@ function App() {
               
               {currentTask.content && (
                 <Box sx={{ mb: 3 }}>
-                  <Typography variant="h6" gutterBottom>
-                    Описание:
-                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="h6" component="span">Описание:</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => setShowTranslation(!showTranslation)}
+                        sx={{ minWidth: '120px' }}
+                      >
+                        {showTranslation ? 'Оригинал' : 'Перевод'}
+                      </Button>
+                      {translationError && (
+                        <Typography color="error" variant="body2">{translationError}</Typography>
+                      )}
+                    </Box>
+                  </Box>
+                  
                   <Typography 
                     variant="body1" 
                     sx={{ 
@@ -422,7 +478,7 @@ function App() {
                       }
                     }}
                     dangerouslySetInnerHTML={{ 
-                      __html: translatedContent
+                      __html: (showTranslation && translatedContent && !translationError ? translatedContent : currentTask.content)
                         .replace(/&nbsp;/g, ' ')
                         .replace(/&lt;/g, '<')
                         .replace(/&gt;/g, '>')
@@ -535,7 +591,7 @@ function App() {
                     Ограничения:
                   </Typography>
                   <Box component="ul" sx={{ pl: 2 }}>
-                    {currentTask.constraints.map((constraint, index) => (
+                    {(showTranslation && translatedConstraints.length > 0 ? translatedConstraints : currentTask.constraints).map((constraint, index) => (
                       <Typography 
                         key={index} 
                         component="li" 
@@ -577,7 +633,7 @@ function App() {
                     Подсказки:
                   </Typography>
                   <Box component="ol" sx={{ pl: 2 }}>
-                    {currentTask.hints.map((hint, index) => (
+                    {(showTranslation && translatedHints.length > 0 ? translatedHints : currentTask.hints).map((hint, index) => (
                       <Typography 
                         key={index} 
                         component="li" 
