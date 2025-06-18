@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Рандомайзер задач на программирование</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Рандомайзер задач</h1>
+    <form method="post" action="get_task.php">
+      <label for="difficulty">Выбери сложность:</label>
+      <select name="difficulty" id="difficulty">
+        <option value="easy">Легко</option>
+        <option value="medium">Средне</option>
+        <option value="hard">Сложно</option>
+      </select>
+      <br><br>
+      <button type="submit">Получить случайную задачу</button>
+    </form>
+  </div>
+</body>
+</html>
